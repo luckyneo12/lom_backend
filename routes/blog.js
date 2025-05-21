@@ -423,4 +423,117 @@ router.delete("/:id", verifyToken, isAuthorOrAdmin, async (req, res) => {
   }
 });
 
+// Update blog post by slug
+router.put("/slug/:slug", verifyToken, isAuthorOrAdmin, upload.array("section_images", 10), async (req, res) => {
+  try {
+    const blog = await Blog.findOne({ slug: req.params.slug });
+    if (!blog) {
+      return res.status(404).json({ 
+        message: "Blog post not found",
+        details: "The requested blog post does not exist"
+      });
+    }
+
+    const {
+      title,
+      description,
+      tags,
+      category,
+      featured,
+      status,
+      sections,
+      meta,
+    } = req.body;
+
+    // Validate category if it's being updated
+    if (category) {
+      const categoryExists = await Category.findById(category);
+      if (!categoryExists) {
+        return res.status(400).json({ message: "Invalid category ID" });
+      }
+    }
+
+    // Process sections with images
+    const processedSections = sections
+      ? JSON.parse(sections).map((section, index) => {
+          const sectionImage = req.files?.[index];
+          return {
+            section_img: sectionImage
+              ? sectionImage.path
+              : section.section_img,
+            section_title: section.section_title,
+            section_description: section.section_description,
+            section_list: section.section_list || [],
+            order: index,
+          };
+        })
+      : blog.sections;
+
+    blog.title = title || blog.title;
+    blog.description = description || blog.description;
+    blog.tags = JSON.parse(tags || JSON.stringify(blog.tags));
+    blog.category = category || blog.category;
+    blog.featured = featured === "true";
+    blog.status = status || blog.status;
+    blog.sections = processedSections;
+    blog.meta = {
+      meta_title: meta.meta_title || blog.meta.meta_title,
+      meta_description: meta.meta_description || blog.meta.meta_description,
+      meta_keywords: JSON.parse(
+        meta.meta_keywords || JSON.stringify(blog.meta.meta_keywords)
+      ),
+    };
+
+    await blog.save();
+    res.json({
+      message: "Blog post updated successfully",
+      blog
+    });
+  } catch (error) {
+    console.error("Error updating blog:", error);
+    res.status(500).json({ 
+      message: "Error updating blog post",
+      error: error.message 
+    });
+  }
+});
+
+// Delete blog post by slug
+router.delete("/slug/:slug", verifyToken, isAuthorOrAdmin, async (req, res) => {
+  try {
+    const blog = await Blog.findOne({ slug: req.params.slug });
+    if (!blog) {
+      return res.status(404).json({ 
+        message: "Blog post not found",
+        details: "The requested blog post does not exist"
+      });
+    }
+
+    // Delete images from Cloudinary
+    if (blog.mainImage) {
+      const publicId = blog.mainImage.split("/").pop().split(".")[0];
+      await cloudinary.uploader.destroy(publicId);
+    }
+
+    for (const section of blog.sections) {
+      if (section.section_img) {
+        const publicId = section.section_img.split("/").pop().split(".")[0];
+        await cloudinary.uploader.destroy(publicId);
+      }
+    }
+
+    await blog.deleteOne();
+    res.json({ 
+      message: "Blog post deleted successfully",
+      details: "The blog post and its associated images have been removed"
+    });
+  } catch (error) {
+    console.error("Error deleting blog:", error);
+    res.status(500).json({ 
+      message: "Error deleting blog post",
+      error: error.message 
+    });
+  }
+});
+
 module.exports = router;
