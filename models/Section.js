@@ -7,22 +7,9 @@ const sectionSchema = new mongoose.Schema(
       required: true,
       trim: true
     },
-    description: {
-      type: String,
-      trim: true
-    },
-    type: {
-      type: String,
-      required: true,
-      enum: ['featured', 'latest', 'category', 'custom'],
-      default: 'latest'
-    },
     category: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: 'Category',
-      required: function() {
-        return this.type === 'category';
-      }
+      ref: 'Category'
     },
     limit: {
       type: Number,

@@ -454,8 +454,11 @@ router.put("/slug/:slug", verifyToken, isAuthorOrAdmin, upload.array("section_im
     }
 
     // Process sections with images
-    const processedSections = sections
-      ? JSON.parse(sections).map((section, index) => {
+    let processedSections = blog.sections;
+    if (sections) {
+      try {
+        const parsedSections = typeof sections === 'string' ? JSON.parse(sections) : sections;
+        processedSections = parsedSections.map((section, index) => {
           const sectionImage = req.files?.[index];
           return {
             section_img: sectionImage
@@ -466,23 +469,55 @@ router.put("/slug/:slug", verifyToken, isAuthorOrAdmin, upload.array("section_im
             section_list: section.section_list || [],
             order: index,
           };
-        })
-      : blog.sections;
+        });
+      } catch (error) {
+        return res.status(400).json({
+          message: "Invalid sections format",
+          details: "Sections must be a valid JSON array"
+        });
+      }
+    }
 
+    // Process tags
+    let processedTags = blog.tags;
+    if (tags) {
+      try {
+        processedTags = typeof tags === 'string' ? JSON.parse(tags) : tags;
+      } catch (error) {
+        return res.status(400).json({
+          message: "Invalid tags format",
+          details: "Tags must be a valid JSON array"
+        });
+      }
+    }
+
+    // Process meta
+    let processedMeta = blog.meta;
+    if (meta) {
+      try {
+        const parsedMeta = typeof meta === 'string' ? JSON.parse(meta) : meta;
+        processedMeta = {
+          meta_title: parsedMeta.meta_title || blog.meta.meta_title,
+          meta_description: parsedMeta.meta_description || blog.meta.meta_description,
+          meta_keywords: parsedMeta.meta_keywords || blog.meta.meta_keywords
+        };
+      } catch (error) {
+        return res.status(400).json({
+          message: "Invalid meta format",
+          details: "Meta must be a valid JSON object"
+        });
+      }
+    }
+
+    // Update blog fields
     blog.title = title || blog.title;
     blog.description = description || blog.description;
-    blog.tags = JSON.parse(tags || JSON.stringify(blog.tags));
+    blog.tags = processedTags;
     blog.category = category || blog.category;
     blog.featured = featured === "true";
     blog.status = status || blog.status;
     blog.sections = processedSections;
-    blog.meta = {
-      meta_title: meta.meta_title || blog.meta.meta_title,
-      meta_description: meta.meta_description || blog.meta.meta_description,
-      meta_keywords: JSON.parse(
-        meta.meta_keywords || JSON.stringify(blog.meta.meta_keywords)
-      ),
-    };
+    blog.meta = processedMeta;
 
     await blog.save();
     res.json({
