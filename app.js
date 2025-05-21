@@ -2,14 +2,27 @@ const express = require("express");
 const mongoose = require("mongoose");
 const cors = require("cors");
 const path = require("path");
+const helmet = require("helmet");
 const config = require("./config/config");
 const { errorHandler } = require("./middleware/errorHandler");
 
 // Create Express app
 const app = express();
 
+// Security middleware
+app.use(helmet({
+  referrerPolicy: { policy: 'strict-origin-when-cross-origin' }
+}));
+
+// CORS configuration
+app.use(cors({
+  origin: ['http://localhost:3000', 'https://lom-frontend.vercel.app'],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: true
+}));
+
 // Middleware
-app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
