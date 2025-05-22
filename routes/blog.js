@@ -2,6 +2,7 @@ const express = require("express");
 const router = express.Router();
 const Blog = require("../models/Blog");
 const Category = require("../models/Category");
+const Section = require("../models/Section");
 const { verifyToken, isAdmin, isAuthorOrAdmin } = require("../middleware/auth");
 const { upload, cloudinary } = require("../config/cloudinary");
 const mongoose = require("mongoose");
@@ -26,6 +27,7 @@ router.post(
         status,
         sections,
         meta,
+        section
       } = req.body;
 
       // Validate required fields
@@ -33,7 +35,8 @@ router.post(
         !title ||
         !description ||
         !category ||
-        !meta
+        !meta ||
+        !section
       ) {
         return res.status(400).json({
           message: "Missing required fields",
@@ -42,6 +45,7 @@ router.post(
             description: !description ? "Description is required" : null,
             category: !category ? "Category is required" : null,
             meta: !meta ? "Meta information is required" : null,
+            section: !section ? "Section is required" : null,
           },
         });
       }
@@ -67,6 +71,12 @@ router.post(
       const categoryExists = await Category.findById(category);
       if (!categoryExists) {
         return res.status(400).json({ message: "Invalid category ID" });
+      }
+
+      // Validate section exists
+      const sectionExists = await Section.findById(section);
+      if (!sectionExists) {
+        return res.status(400).json({ message: "Invalid section ID" });
       }
 
       // Get main image URL if provided
@@ -141,6 +151,7 @@ router.post(
         mainImage: mainImageUrl,
         tags: parsedTags,
         category,
+        section,
         featured: featured === "true",
         status: status || "draft",
         sections: processedSections,
@@ -343,7 +354,10 @@ router.put(
         status,
         sections,
         meta,
+        section
       } = req.body;
+
+      console.log("Received section:", section); // Debug log
 
       const blog = await Blog.findById(req.params.id);
       if (!blog) {
@@ -358,42 +372,125 @@ router.put(
         }
       }
 
-      // Process sections with images
-      const processedSections = sections
-        ? JSON.parse(sections).map((section, index) => {
-            const sectionImage = req.files?.[index];
-            return {
-              section_img: sectionImage
-                ? sectionImage.path
-                : section.section_img,
-              section_title: section.section_title,
-              section_description: section.section_description,
-              section_list: section.section_list || [],
-              order: index,
-            };
-          })
-        : blog.sections;
+      // Validate section if provided
+      if (section) {
+        const sectionExists = await Section.findById(section);
+        if (!sectionExists) {
+          return res.status(400).json({ message: "Invalid section ID" });
+        }
+        // Update the section
+        blog.section = section;
+      }
 
+      // Process sections with images
+      let processedSections = [];
+      if (sections) {
+        try {
+          // Parse sections if it's a string
+          const parsedSections = typeof sections === 'string' ? JSON.parse(sections) : sections;
+          console.log("Parsed sections:", parsedSections); // Debug log
+
+          if (!Array.isArray(parsedSections)) {
+            return res.status(400).json({
+              message: "Invalid sections format",
+              details: "Sections must be an array"
+            });
+          }
+
+          // Process each section
+          processedSections = await Promise.all(parsedSections.map(async (section, index) => {
+            const sectionImage = req.files?.[index];
+            console.log(`Processing section ${index}:`, section); // Debug log
+            console.log(`Section image for index ${index}:`, sectionImage); // Debug log
+
+            return {
+              section_img: sectionImage ? sectionImage.path : (section.section_img || ""),
+              section_title: section.section_title || "",
+              section_description: section.section_description || "",
+              section_list: Array.isArray(section.section_list) ? section.section_list : [],
+              order: index
+            };
+          }));
+
+          console.log("Processed sections:", processedSections); // Debug log
+        } catch (error) {
+          console.error("Error processing sections:", error);
+          return res.status(400).json({
+            message: "Invalid sections format",
+            details: "Sections must be a valid JSON array"
+          });
+        }
+      } else {
+        // If no new sections provided, keep existing sections
+        processedSections = blog.sections;
+      }
+
+      // Process tags
+      let processedTags = blog.tags;
+      if (tags) {
+        try {
+          processedTags = typeof tags === 'string' ? JSON.parse(tags) : tags;
+          if (!Array.isArray(processedTags)) {
+            return res.status(400).json({
+              message: "Invalid tags format",
+              details: "Tags must be an array"
+            });
+          }
+        } catch (error) {
+          return res.status(400).json({
+            message: "Invalid tags format",
+            details: "Tags must be a valid JSON array"
+          });
+        }
+      }
+
+      // Process meta
+      let processedMeta = blog.meta;
+      if (meta) {
+        try {
+          const parsedMeta = typeof meta === 'string' ? JSON.parse(meta) : meta;
+          processedMeta = {
+            meta_title: parsedMeta.meta_title || blog.meta.meta_title,
+            meta_description: parsedMeta.meta_description || blog.meta.meta_description,
+            meta_keywords: parsedMeta.meta_keywords || blog.meta.meta_keywords
+          };
+        } catch (error) {
+          return res.status(400).json({
+            message: "Invalid meta format",
+            details: "Meta must be a valid JSON object"
+          });
+        }
+      }
+
+      // Update blog fields
       blog.title = title || blog.title;
       blog.description = description || blog.description;
-      blog.tags = JSON.parse(tags || JSON.stringify(blog.tags));
+      blog.tags = processedTags;
       blog.category = category || blog.category;
       blog.featured = featured === "true";
       blog.status = status || blog.status;
       blog.sections = processedSections;
-      blog.meta = {
-        meta_title: meta.meta_title || blog.meta.meta_title,
-        meta_description: meta.meta_description || blog.meta.meta_description,
-        meta_keywords: JSON.parse(
-          meta.meta_keywords || JSON.stringify(blog.meta.meta_keywords)
-        ),
-      };
+      blog.meta = processedMeta;
 
+      console.log("Saving blog with section:", blog.section); // Debug log
       await blog.save();
-      res.json(blog);
+      
+      // Fetch the updated blog with populated section
+      const updatedBlog = await Blog.findById(blog._id)
+        .populate("section")
+        .populate("category")
+        .populate("author", "name email");
+
+      res.json({
+        message: "Blog post updated successfully",
+        blog: updatedBlog
+      });
     } catch (error) {
       console.error("Error updating blog:", error);
-      res.status(500).json({ message: "Error updating blog post" });
+      res.status(500).json({ 
+        message: "Error updating blog post",
+        error: error.message 
+      });
     }
   }
 );
@@ -443,6 +540,7 @@ router.put("/slug/:slug", verifyToken, isAuthorOrAdmin, upload.array("section_im
       status,
       sections,
       meta,
+      section
     } = req.body;
 
     // Validate category if it's being updated
@@ -450,6 +548,14 @@ router.put("/slug/:slug", verifyToken, isAuthorOrAdmin, upload.array("section_im
       const categoryExists = await Category.findById(category);
       if (!categoryExists) {
         return res.status(400).json({ message: "Invalid category ID" });
+      }
+    }
+
+    // Validate section if provided
+    if (section) {
+      const sectionExists = await Section.findById(section);
+      if (!sectionExists) {
+        return res.status(400).json({ message: "Invalid section ID" });
       }
     }
 
@@ -514,6 +620,7 @@ router.put("/slug/:slug", verifyToken, isAuthorOrAdmin, upload.array("section_im
     blog.description = description || blog.description;
     blog.tags = processedTags;
     blog.category = category || blog.category;
+    blog.section = section || blog.section;
     blog.featured = featured === "true";
     blog.status = status || blog.status;
     blog.sections = processedSections;
@@ -570,5 +677,17 @@ router.delete("/slug/:slug", verifyToken, isAuthorOrAdmin, async (req, res) => {
     });
   }
 });
+
+// Get blogs by section ID
+const getBlogsBySection = async (sectionId, page = 1, limit = 10) => {
+  try {
+    const response = await fetch(`/api/blogs/section/${sectionId}?page=${page}&limit=${limit}`);
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.error('Error fetching blogs:', error);
+    throw error;
+  }
+};
 
 module.exports = router;

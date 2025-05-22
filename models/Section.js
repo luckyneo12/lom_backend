@@ -7,16 +7,6 @@ const sectionSchema = new mongoose.Schema(
       required: true,
       trim: true
     },
-    category: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'Category'
-    },
-    limit: {
-      type: Number,
-      default: 6,
-      min: 1,
-      max: 20
-    },
     order: {
       type: Number,
       required: true
@@ -24,15 +14,6 @@ const sectionSchema = new mongoose.Schema(
     isActive: {
       type: Boolean,
       default: true
-    },
-    displayStyle: {
-      type: String,
-      enum: ['grid', 'list', 'carousel'],
-      default: 'grid'
-    },
-    customQuery: {
-      type: Object,
-      default: {}
     }
   },
   {

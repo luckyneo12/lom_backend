@@ -1,5 +1,6 @@
 const Blog = require("../models/Blog");
 const Category = require("../models/Category");
+const Section = require("../models/Section");
 const asyncHandler = require("express-async-handler");
 const mongoose = require("mongoose");
 
@@ -109,8 +110,43 @@ const getBlogsByMultipleCategories = asyncHandler(async (req, res) => {
   res.status(200).json(blogsByCategory);
 });
 
+// Get blogs by section ID
+const getBlogsBySection = asyncHandler(async (req, res) => {
+  const { sectionId } = req.params;
+
+  if (!mongoose.Types.ObjectId.isValid(sectionId)) {
+    res.status(400);
+    throw new Error("Invalid section ID");
+  }
+
+  const section = await Section.findById(sectionId);
+  if (!section) {
+    res.status(404);
+    throw new Error("Section not found");
+  }
+
+  // Get blogs for this section
+  const blogs = await Blog.find({ 
+    section: section._id,
+    status: "published"
+  })
+  .populate("author", "name email")
+  .populate("category", "name slug")
+  .sort({ createdAt: -1 });
+
+  res.status(200).json({
+    section: {
+      _id: section._id,
+      title: section.title,
+      order: section.order
+    },
+    blogs: blogs
+  });
+});
+
 module.exports = {
   getBlogsByCategory,
   getBlogCountsByCategory,
-  getBlogsByMultipleCategories
+  getBlogsByMultipleCategories,
+  getBlogsBySection
 }; 

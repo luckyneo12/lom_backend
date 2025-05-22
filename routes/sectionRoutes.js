@@ -3,93 +3,63 @@ const router = express.Router();
 const Section = require("../models/Section");
 const Blog = require("../models/Blog");
 const { verifyToken, isAdmin } = require("../middleware/auth");
+const mongoose = require("mongoose");
 
-// Get all sections with their blogs
+// Get all sections
 router.get("/", async (req, res) => {
   try {
     const sections = await Section.find({ isActive: true })
-      .populate("category", "name slug")
       .sort({ order: 1 });
-
-    // Fetch blogs for each section
-    const sectionsWithBlogs = await Promise.all(
-      sections.map(async (section) => {
-        let query = { status: "published" };
-        
-        switch (section.type) {
-          case "featured":
-            query.featured = true;
-            break;
-          case "category":
-            query.category = section.category._id;
-            break;
-          case "custom":
-            query = { ...query, ...section.customQuery };
-            break;
-          // 'latest' is default, no additional query needed
-        }
-
-        const blogs = await Blog.find(query)
-          .populate("author", "name")
-          .populate("category", "name slug")
-          .sort({ createdAt: -1 })
-          .limit(section.limit);
-
-        return {
-          ...section.toObject(),
-          blogs
-        };
-      })
-    );
-
-    res.json(sectionsWithBlogs);
+    res.json(sections);
   } catch (error) {
     console.error("Error fetching sections:", error);
     res.status(500).json({ message: "Error fetching sections" });
   }
 });
 
+// Get a single section by ID
+router.get("/:id", async (req, res) => {
+  try {
+    const section = await Section.findById(req.params.id);
+    
+    if (!section) {
+      return res.status(404).json({ message: "Section not found" });
+    }
+
+    // Fetch blogs for this section
+    const blogs = await Blog.find({ status: "published" })
+      .populate("author", "name")
+      .populate("category", "name slug")
+      .sort({ createdAt: -1 });
+
+    res.json({
+      ...section.toObject(),
+      blogs
+    });
+  } catch (error) {
+    console.error("Error fetching section:", error);
+    res.status(500).json({ message: "Error fetching section" });
+  }
+});
+
 // Create a new section (Admin only)
 router.post("/", verifyToken, isAdmin, async (req, res) => {
   try {
-    const {
-      title,
-      description,
-      type,
-      category,
-      limit,
-      order,
-      displayStyle,
-      customQuery
-    } = req.body;
+    const { title, order } = req.body;
 
     // Validate required fields
-    if (!title || !type) {
+    if (!title) {
       return res.status(400).json({
         message: "Missing required fields",
         details: {
-          title: !title ? "Title is required" : null,
-          type: !type ? "Type is required" : null
+          title: !title ? "Title is required" : null
         }
-      });
-    }
-
-    // Validate category if type is 'category'
-    if (type === "category" && !category) {
-      return res.status(400).json({
-        message: "Category is required for category type sections"
       });
     }
 
     const section = new Section({
       title,
-      description,
-      type,
-      category: type === "category" ? category : undefined,
-      limit: limit || 6,
-      order: order || 0,
-      displayStyle: displayStyle || "grid",
-      customQuery: type === "custom" ? customQuery : {}
+      order: order || 0
     });
 
     await section.save();
@@ -100,20 +70,74 @@ router.post("/", verifyToken, isAdmin, async (req, res) => {
   }
 });
 
+// Reorder sections (both POST and PUT methods)
+const handleReorder = async (req, res) => {
+  try {
+    console.log("Received reorder request:", req.body);
+
+    const { sections } = req.body;
+
+    if (!sections || !Array.isArray(sections)) {
+      return res.status(400).json({ 
+        message: "Please provide an array of sections with their new orders",
+        received: req.body
+      });
+    }
+
+    // Update each section's order
+    for (const { id, order } of sections) {
+      if (!id || !mongoose.Types.ObjectId.isValid(id)) {
+        return res.status(400).json({
+          message: "Invalid section ID",
+          invalidId: id
+        });
+      }
+
+      if (typeof order !== 'number') {
+        return res.status(400).json({
+          message: "Order must be a number",
+          invalidOrder: order
+        });
+      }
+
+      const section = await Section.findById(id);
+      if (!section) {
+        return res.status(404).json({
+          message: "Section not found",
+          sectionId: id
+        });
+      }
+
+      await Section.findByIdAndUpdate(id, { order });
+      console.log(`Updated section ${id} with order ${order}`);
+    }
+
+    // Get all updated sections
+    const updatedSections = await Section.find()
+      .sort({ order: 1 });
+
+    res.json({
+      message: "Sections reordered successfully",
+      sections: updatedSections
+    });
+  } catch (error) {
+    console.error("Error reordering sections:", error);
+    res.status(500).json({ 
+      message: "Error reordering sections",
+      error: error.message,
+      stack: error.stack
+    });
+  }
+};
+
+// Add both POST and PUT routes for reordering
+router.post("/reorder", verifyToken, isAdmin, handleReorder);
+router.put("/reorder", verifyToken, isAdmin, handleReorder);
+
 // Update a section (Admin only)
 router.put("/:id", verifyToken, isAdmin, async (req, res) => {
   try {
-    const {
-      title,
-      description,
-      type,
-      category,
-      limit,
-      order,
-      isActive,
-      displayStyle,
-      customQuery
-    } = req.body;
+    const { title, order, isActive } = req.body;
 
     const section = await Section.findById(req.params.id);
     if (!section) {
@@ -122,14 +146,8 @@ router.put("/:id", verifyToken, isAdmin, async (req, res) => {
 
     // Update fields
     section.title = title || section.title;
-    section.description = description || section.description;
-    section.type = type || section.type;
-    section.category = type === "category" ? category : undefined;
-    section.limit = limit || section.limit;
     section.order = order !== undefined ? order : section.order;
     section.isActive = isActive !== undefined ? isActive : section.isActive;
-    section.displayStyle = displayStyle || section.displayStyle;
-    section.customQuery = type === "custom" ? customQuery : section.customQuery;
 
     await section.save();
     res.json(section);

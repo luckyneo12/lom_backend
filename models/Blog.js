@@ -25,6 +25,11 @@ const blogSchema = new mongoose.Schema(
       ref: "Category",
       required: true,
     },
+    section: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Section",
+      required: true
+    },
     featured: {
       type: Boolean,
       default: false,
