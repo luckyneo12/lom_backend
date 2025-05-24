@@ -12,5 +12,6 @@ router.get("/blog/category/:categoryId", getBlogsByCategory);
 router.get("/blog/category-counts", getBlogCountsByCategory);
 router.post("/blog/categories", getBlogsByMultipleCategories);
 router.get("/blog/section/:sectionId", getBlogsBySection);
+router.get("/blog", getBlogsBySection);
 
 module.exports = router; 

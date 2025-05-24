@@ -112,22 +112,27 @@ const getBlogsByMultipleCategories = asyncHandler(async (req, res) => {
 
 // Get blogs by section ID
 const getBlogsBySection = asyncHandler(async (req, res) => {
-  const { sectionId } = req.params;
+  const { section } = req.query;
 
-  if (!mongoose.Types.ObjectId.isValid(sectionId)) {
+  if (!section) {
+    res.status(400);
+    throw new Error("Section ID is required");
+  }
+
+  if (!mongoose.Types.ObjectId.isValid(section)) {
     res.status(400);
     throw new Error("Invalid section ID");
   }
 
-  const section = await Section.findById(sectionId);
-  if (!section) {
+  const sectionDoc = await Section.findById(section);
+  if (!sectionDoc) {
     res.status(404);
     throw new Error("Section not found");
   }
 
   // Get blogs for this section
   const blogs = await Blog.find({ 
-    section: section._id,
+    section: sectionDoc._id,
     status: "published"
   })
   .populate("author", "name email")
@@ -136,9 +141,9 @@ const getBlogsBySection = asyncHandler(async (req, res) => {
 
   res.status(200).json({
     section: {
-      _id: section._id,
-      title: section.title,
-      order: section.order
+      _id: sectionDoc._id,
+      title: sectionDoc.title,
+      order: sectionDoc.order
     },
     blogs: blogs
   });

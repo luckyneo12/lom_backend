@@ -178,11 +178,30 @@ router.post(
 // Get all blog posts with category population
 router.get("/", async (req, res) => {
   try {
-    const blogs = await Blog.find()
+    const { section } = req.query;
+    let query = { status: "published" };
+
+    // If section ID is provided, add it to the query
+    if (section) {
+      if (!mongoose.Types.ObjectId.isValid(section)) {
+        return res.status(400).json({
+          message: "Invalid section ID format",
+          details: "Please provide a valid section ID"
+        });
+      }
+      query.section = section;
+    }
+
+    const blogs = await Blog.find(query)
       .populate("author", "name email")
       .populate("category", "name slug")
+      .populate("section", "title order")
       .sort({ createdAt: -1 });
-    res.json(blogs);
+
+    res.json({
+      message: "Blogs retrieved successfully",
+      blogs
+    });
   } catch (error) {
     console.error("Error fetching blogs:", error);
     res.status(500).json({ message: "Error fetching blog posts" });
