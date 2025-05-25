@@ -48,6 +48,9 @@ const dashboardRoutes = require("./routes/dashboardRoutes");
 const categoryRoutes = require("./routes/categoryRoutes");
 const uploadRoutes = require("./routes/upload");
 const sectionRoutes = require("./routes/sectionRoutes");
+const contactRoutes = require("./routes/contactRoutes");
+const projectRoutes = require("./routes/projectRoutes");
+const projectCategoryRoutes = require("./routes/projectCategoryRoutes");
 
 app.use("/api/auth", authRoutes);
 app.use("/api/blog", blogRoutes);
@@ -55,6 +58,9 @@ app.use("/api/dashboard", dashboardRoutes);
 app.use("/api/categories", categoryRoutes);
 app.use("/api/upload", uploadRoutes);
 app.use("/api/sections", sectionRoutes);
+app.use("/api/contact", contactRoutes);
+app.use("/api/projects", projectRoutes);
+app.use("/api/project-categories", projectCategoryRoutes);
 
 // Error handling middleware
 app.use(errorHandler);
