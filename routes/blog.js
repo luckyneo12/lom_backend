@@ -516,7 +516,8 @@ router.put(
 
       res.json({
         message: "Blog post updated successfully",
-        blog: updatedBlog
+        blog: updatedBlog,
+        refresh: true
       });
     } catch (error) {
       console.error("Error updating blog:", error);

@@ -5,12 +5,15 @@ A robust backend API for a blog platform built with Node.js, Express, and MongoD
 ## Features
 
 - User authentication and authorization
-- Blog post management
+- Blog post management with draft and publish functionality
 - Project portfolio management
 - Category management
 - Image upload using Cloudinary
 - JWT-based authentication
 - Role-based access control
+- Automatic page refresh after draft save
+- Section-based blog organization
+- SEO metadata support
 
 ## Prerequisites
 
@@ -62,6 +65,9 @@ npm start
 - GET `/api/posts/:id` - Get a single blog post
 - PUT `/api/posts/:id` - Update a blog post
 - DELETE `/api/posts/:id` - Delete a blog post
+- GET `/api/posts/slug/:slug` - Get blog post by slug
+- GET `/api/posts/category/:slug` - Get posts by category slug
+- GET `/api/posts/category/id/:categoryId` - Get posts by category ID
 
 ### Projects
 - GET `/api/projects` - Get all projects
@@ -76,6 +82,26 @@ npm start
 - GET `/api/categories/:id` - Get a single category
 - PUT `/api/categories/:id` - Update a category
 - DELETE `/api/categories/:id` - Delete a category
+
+## Blog Post Features
+
+### Draft System
+- Save posts as drafts
+- Automatic page refresh after draft save
+- Toggle between draft and published states
+- Draft posts are only visible to authors and admins
+
+### Section Management
+- Organize blog posts into sections
+- Order sections for custom display
+- Section-specific image uploads
+- Section metadata support
+
+### Image Handling
+- Main image upload for blog posts
+- Multiple section images support
+- Automatic Cloudinary integration
+- Image optimization and CDN delivery
 
 ## Project Structure
 
