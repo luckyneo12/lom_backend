@@ -26,11 +26,16 @@ exports.createProject = async (req, res) => {
 
     // Upload main image
     let mainImageUrl = '';
-    if (req.files && req.files.mainImage) {
+    if (req.files && req.files.mainImage && req.files.mainImage[0]) {
       const mainImageResult = await cloudinary.uploader.upload(req.files.mainImage[0].path, {
         folder: 'projects/main'
       });
       mainImageUrl = mainImageResult.secure_url;
+    } else {
+      return res.status(400).json({
+        success: false,
+        message: 'Main image is required'
+      });
     }
 
     // Upload additional images

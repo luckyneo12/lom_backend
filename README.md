@@ -1,16 +1,16 @@
-# Blog Backend
+# Blog Backend API
 
-A fully functional blog backend built with Node.js, Express, and MongoDB, featuring authentication, section management, and image upload capabilities.
+A robust backend API for a blog platform built with Node.js, Express, and MongoDB.
 
 ## Features
 
-- Admin-only authentication using JWT
-- Blog CRUD operations
-- Section management with ordering
+- User authentication and authorization
+- Blog post management
+- Project portfolio management
+- Category management
 - Image upload using Cloudinary
-- MongoDB database integration
-- Input validation
-- Error handling
+- JWT-based authentication
+- Role-based access control
 
 ## Prerequisites
 
@@ -18,251 +18,103 @@ A fully functional blog backend built with Node.js, Express, and MongoDB, featur
 - MongoDB
 - Cloudinary account
 
-## Setup
+## Environment Variables
 
-1. Clone the repository
+Create a `.env` file in the root directory with the following variables:
+
+```env
+PORT=5000
+MONGODB_URI=your_mongodb_connection_string
+JWT_SECRET=your_jwt_secret
+CLOUDINARY_CLOUD_NAME=your_cloudinary_cloud_name
+CLOUDINARY_API_KEY=your_cloudinary_api_key
+CLOUDINARY_API_SECRET=your_cloudinary_api_secret
+```
+
+## Installation
+
+1. Clone the repository:
+```bash
+git clone <repository-url>
+cd blog-backend
+```
+
 2. Install dependencies:
-   ```bash
-   npm install
-   ```
-3. Create a `.env` file in the root directory with the following variables:
+```bash
+npm install
+```
 
-   ```
-   PORT=5000
-   MONGODB_URI=mongodb://localhost:27017/blog
-   JWT_SECRET=your_jwt_secret_key_here
-   CLOUDINARY_CLOUD_NAME=your_cloud_name
-   CLOUDINARY_API_KEY=your_api_key
-   CLOUDINARY_API_SECRET=your_api_secret
-   ```
-
-4. Start the server:
-   ```bash
-   npm run dev
-   ```
+3. Start the server:
+```bash
+npm start
+```
 
 ## API Endpoints
 
 ### Authentication
-
-- `POST /api/auth/register`
-
-  - Body:
-    ```json
-    {
-      "name": "Admin User",
-      "email": "admin@example.com",
-      "password": "your_password"
-    }
-    ```
-  - Returns:
-    ```json
-    {
-      "token": "jwt_token",
-      "user": {
-        "id": "user_id",
-        "name": "Admin User",
-        "email": "admin@example.com",
-        "isAdmin": true
-      },
-      "redirectTo": "/dashboard"
-    }
-    ```
-
-- `POST /api/auth/login`
-  - Body:
-    ```json
-    {
-      "email": "admin@example.com",
-      "password": "your_password"
-    }
-    ```
-  - Returns:
-    ```json
-    {
-      "token": "jwt_token",
-      "user": {
-        "id": "user_id",
-        "name": "Admin User",
-        "email": "admin@example.com",
-        "isAdmin": true
-      },
-      "redirectTo": "/dashboard"
-    }
-    ```
-
-### Sections
-
-- `GET /api/sections`
-  - Returns: List of all active sections sorted by order
-  - Response:
-    ```json
-    [
-      {
-        "_id": "section_id",
-        "title": "Section Title",
-        "order": 1,
-        "isActive": true
-      }
-    ]
-    ```
-
-- `GET /api/sections/:id`
-  - Returns: Single section with its blogs
-  - Response:
-    ```json
-    {
-      "_id": "section_id",
-      "title": "Section Title",
-      "order": 1,
-      "isActive": true,
-      "blogs": [
-        {
-          "_id": "blog_id",
-          "title": "Blog Title",
-          "description": "Blog Description",
-          "author": {
-            "name": "Author Name"
-          },
-          "category": {
-            "name": "Category Name",
-            "slug": "category-slug"
-          }
-        }
-      ]
-    }
-    ```
-
-- `POST /api/sections`
-  - Headers: `Authorization: Bearer <token>`
-  - Body:
-    ```json
-    {
-      "title": "Section Title",
-      "order": 1
-    }
-    ```
-  - Returns: Created section
-
-- `PUT /api/sections/:id`
-  - Headers: `Authorization: Bearer <token>`
-  - Body:
-    ```json
-    {
-      "title": "Updated Title",
-      "order": 2,
-      "isActive": true
-    }
-    ```
-  - Returns: Updated section
-
-- `POST/PUT /api/sections/reorder`
-  - Headers: `Authorization: Bearer <token>`
-  - Body:
-    ```json
-    {
-      "sections": [
-        { "id": "section_id_1", "order": 1 },
-        { "id": "section_id_2", "order": 2 }
-      ]
-    }
-    ```
-  - Returns: Updated sections list
-
-- `DELETE /api/sections/:id`
-  - Headers: `Authorization: Bearer <token>`
-  - Returns: Success message
-
-- `PATCH /api/sections/:id/toggle`
-  - Headers: `Authorization: Bearer <token>`
-  - Returns: Updated section with toggled active status
+- POST `/api/auth/register` - Register a new user
+- POST `/api/auth/login` - Login user
+- GET `/api/auth/me` - Get current user profile
 
 ### Blog Posts
+- GET `/api/posts` - Get all blog posts
+- POST `/api/posts` - Create a new blog post
+- GET `/api/posts/:id` - Get a single blog post
+- PUT `/api/posts/:id` - Update a blog post
+- DELETE `/api/posts/:id` - Delete a blog post
 
-- `GET /api/blog`
-  - Returns: List of all blog posts
+### Projects
+- GET `/api/projects` - Get all projects
+- POST `/api/projects` - Create a new project
+- GET `/api/projects/:id` - Get a single project
+- PUT `/api/projects/:id` - Update a project
+- DELETE `/api/projects/:id` - Delete a project
 
-- `GET /api/blog/:id`
-  - Returns: Single blog post
+### Categories
+- GET `/api/categories` - Get all categories
+- POST `/api/categories` - Create a new category
+- GET `/api/categories/:id` - Get a single category
+- PUT `/api/categories/:id` - Update a category
+- DELETE `/api/categories/:id` - Delete a category
 
-- `GET /api/blog/slug/:slug`
-  - Returns: Blog post by slug
+## Project Structure
 
-- `GET /api/blog/section/:sectionId`
-  - Returns: Blogs by section ID with pagination
-  - Query Parameters:
-    - `page`: Page number (default: 1)
-    - `limit`: Items per page (default: 10)
-  - Response:
-    ```json
-    {
-      "blogs": [...],
-      "pagination": {
-        "total": 50,
-        "page": 1,
-        "pages": 5,
-        "limit": 10
-      },
-      "section": {
-        "_id": "section_id",
-        "title": "Section Title",
-        "order": 1
-      }
-    }
-    ```
+```
+├── config/
+│   ├── cloudinary.js
+│   └── db.js
+├── controllers/
+│   ├── authController.js
+│   ├── blogController.js
+│   ├── categoryController.js
+│   └── projectController.js
+├── middleware/
+│   ├── auth.js
+│   └── upload.js
+├── models/
+│   ├── User.js
+│   ├── Blog.js
+│   ├── Category.js
+│   └── Project.js
+├── routes/
+│   ├── auth.js
+│   ├── blog.js
+│   ├── category.js
+│   └── project.js
+├── .env
+├── .gitignore
+├── package.json
+└── server.js
+```
 
-- `POST /api/blog`
-  - Headers: `Authorization: Bearer <token>`
-  - Body: FormData with:
-    - title
-    - description
-    - category
-    - section (required)
-    - tags (array)
-    - meta (object with meta_title and meta_description)
-    - mainImage
-    - sections (array of objects with title, description)
-    - section_images (array of images)
-  - Returns: Created blog post
+## Contributing
 
-- `PUT /api/blog/:id`
-  - Headers: `Authorization: Bearer <token>`
-  - Body: FormData with same fields as POST
-  - Returns: Updated blog post
+1. Fork the repository
+2. Create your feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add some amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
 
-- `DELETE /api/blog/:id`
-  - Headers: `Authorization: Bearer <token>`
-  - Returns: Success message
+## License
 
-## Blog Structure
-
-Each blog post contains:
-
-- Title
-- Description
-- Main image
-- Category
-- Section (required)
-- Tags
-- SEO metadata
-- Sections (with title, description, and image)
-- Author information
-- Creation and update timestamps
-- Auto-generated slug
-
-## Section Structure
-
-Each section contains:
-
-- Title
-- Order (for sorting)
-- Active status
-- Reference to associated blogs
-
-## Security
-
-- All routes except login and blog listing require authentication
-- Passwords are hashed using bcrypt
-- JWT tokens expire after 24 hours
-- Input validation on all routes
-- Admin-only access for blog and section management
+This project is licensed under the MIT License.

@@ -178,8 +178,22 @@ router.post(
 // Get all blog posts with category population
 router.get("/", async (req, res) => {
   try {
-    const { section } = req.query;
-    let query = { status: "published" };
+    const { section, status } = req.query;
+    let query = {};
+
+    // Add status filter if provided
+    if (status) {
+      if (!["draft", "published"].includes(status)) {
+        return res.status(400).json({
+          message: "Invalid status value",
+          details: "Status must be either 'draft' or 'published'"
+        });
+      }
+      query.status = status;
+    } else {
+      // Default to published if no status is specified
+      query.status = "published";
+    }
 
     // If section ID is provided, add it to the query
     if (section) {
@@ -708,5 +722,42 @@ const getBlogsBySection = async (sectionId, page = 1, limit = 10) => {
     throw error;
   }
 };
+
+// Get blogs by status
+router.get("/blogs", async (req, res) => {
+  try {
+    const { status } = req.query;
+    
+    if (status && !["draft", "published"].includes(status)) {
+      return res.status(400).json({
+        message: "Invalid status value",
+        details: "Status must be either 'draft' or 'published'"
+      });
+    }
+
+    const query = status ? { status } : { status: "published" };
+    
+    const blogs = await Blog.find(query)
+      .populate({
+        path: "category",
+        select: "name slug description",
+        match: { status: "published" }
+      })
+      .populate("author", "name email")
+      .populate("section", "title order")
+      .sort({ createdAt: -1 });
+
+    // Filter out blogs where category population failed
+    const filteredBlogs = blogs.filter(blog => blog.category !== null);
+
+    res.json({
+      message: "Blogs retrieved successfully",
+      blogs: filteredBlogs
+    });
+  } catch (error) {
+    console.error("Error fetching blogs:", error);
+    res.status(500).json({ message: "Error fetching blog posts" });
+  }
+});
 
 module.exports = router;
