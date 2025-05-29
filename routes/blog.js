@@ -4,8 +4,9 @@ const Blog = require("../models/Blog");
 const Category = require("../models/Category");
 const Section = require("../models/Section");
 const { verifyToken, isAdmin, isAuthorOrAdmin } = require("../middleware/auth");
-const { upload, cloudinary } = require("../config/cloudinary");
+const { upload, bucket } = require("../config/gcp");
 const mongoose = require("mongoose");
+const path = require('path');
 
 // Create a new blog post
 router.post(
@@ -79,8 +80,62 @@ router.post(
         return res.status(400).json({ message: "Invalid section ID" });
       }
 
-      // Get main image URL if provided
-      const mainImageUrl = req.files?.mainImage?.[0]?.path || "";
+      // Upload main image
+      let mainImageUrl = '';
+      if (req.files && req.files.mainImage && req.files.mainImage[0]) {
+        const file = req.files.mainImage[0];
+        const timestamp = new Date().toISOString().replace(/[:.-]/g, "");
+        const filename = `${timestamp}__${file.originalname}`;
+        const filePath = `blog/main/${filename}`;
+
+        const blob = bucket.file(filePath);
+        const blobStream = blob.createWriteStream({
+          metadata: {
+            contentType: file.mimetype,
+          },
+        });
+
+        await new Promise((resolve, reject) => {
+          blobStream.on('error', reject);
+          blobStream.on('finish', async () => {
+            await blob.makePublic();
+            resolve();
+          });
+          blobStream.end(file.buffer);
+        });
+
+        mainImageUrl = `https://storage.googleapis.com/${bucket.name}/${filePath}`;
+      }
+
+      // Upload section images
+      let sectionImages = [];
+      if (req.files && req.files.section_images) {
+        const uploadPromises = req.files.section_images.map(async (file) => {
+          const timestamp = new Date().toISOString().replace(/[:.-]/g, "");
+          const filename = `${timestamp}__${file.originalname}`;
+          const filePath = `blog/sections/${filename}`;
+
+          const blob = bucket.file(filePath);
+          const blobStream = blob.createWriteStream({
+            metadata: {
+              contentType: file.mimetype,
+            },
+          });
+
+          await new Promise((resolve, reject) => {
+            blobStream.on('error', reject);
+            blobStream.on('finish', async () => {
+              await blob.makePublic();
+              resolve();
+            });
+            blobStream.end(file.buffer);
+          });
+
+          return `https://storage.googleapis.com/${bucket.name}/${filePath}`;
+        });
+
+        sectionImages = await Promise.all(uploadPromises);
+      }
 
       // Validate sections format
       let parsedSections;
@@ -106,12 +161,12 @@ router.post(
       // Process sections with images
       const processedSections = await Promise.all(
         parsedSections.map(async (section, index) => {
-          const sectionImage = req.files.section_images?.[index];
+          const sectionImage = sectionImages[index];
           
           // Remove the error throw for missing section images
           let sectionImageUrl = section.section_img; // Default to existing image
           if (sectionImage) {
-            sectionImageUrl = sectionImage.path;
+            sectionImageUrl = sectionImage;
           }
 
           return {
@@ -537,12 +592,18 @@ router.delete("/:id", verifyToken, isAuthorOrAdmin, async (req, res) => {
       return res.status(404).json({ message: "Blog post not found" });
     }
 
-    // Delete images from Cloudinary
-    const { cloudinary } = require("../config/cloudinary");
+    // Delete images from GCP
+    if (blog.mainImage) {
+      const filePath = blog.mainImage.split(`${bucket.name}/`)[1];
+      const file = bucket.file(filePath);
+      await file.delete().catch(console.error);
+    }
+
     for (const section of blog.sections) {
       if (section.section_img) {
-        const publicId = section.section_img.split("/").pop().split(".")[0];
-        await cloudinary.uploader.destroy(publicId);
+        const filePath = section.section_img.split(`${bucket.name}/`)[1];
+        const file = bucket.file(filePath);
+        await file.delete().catch(console.error);
       }
     }
 
@@ -685,16 +746,18 @@ router.delete("/slug/:slug", verifyToken, isAuthorOrAdmin, async (req, res) => {
       });
     }
 
-    // Delete images from Cloudinary
+    // Delete images from GCP
     if (blog.mainImage) {
-      const publicId = blog.mainImage.split("/").pop().split(".")[0];
-      await cloudinary.uploader.destroy(publicId);
+      const filePath = blog.mainImage.split(`${bucket.name}/`)[1];
+      const file = bucket.file(filePath);
+      await file.delete().catch(console.error);
     }
 
     for (const section of blog.sections) {
       if (section.section_img) {
-        const publicId = section.section_img.split("/").pop().split(".")[0];
-        await cloudinary.uploader.destroy(publicId);
+        const filePath = section.section_img.split(`${bucket.name}/`)[1];
+        const file = bucket.file(filePath);
+        await file.delete().catch(console.error);
       }
     }
 

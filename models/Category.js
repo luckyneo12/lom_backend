@@ -26,11 +26,18 @@ const categorySchema = new mongoose.Schema(
       enum: ["draft", "published"],
       default: "published",
     },
+    order: {
+      type: Number,
+      default: 0,
+    },
   },
   {
     timestamps: true,
   }
 );
+
+// Add index for ordering
+categorySchema.index({ order: 1 });
 
 // Generate slug before saving
 categorySchema.pre("save", function (next) {

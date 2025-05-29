@@ -8,7 +8,7 @@ const {
   deleteProject 
 } = require('../controllers/projectController');
 const { verifyToken, isAdmin } = require('../middleware/auth');
-const { upload } = require('../config/cloudinary');
+const { upload } = require('../config/gcp');
 
 // Public routes
 router.get('/', getAllProjects);

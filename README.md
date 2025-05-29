@@ -1,45 +1,29 @@
 # Blog Backend API
 
-A robust backend API for a blog platform built with Node.js, Express, and MongoDB.
+A robust backend API for a blog system with features like categories, sections, and drag-and-drop ordering.
 
 ## Features
 
-- User authentication and authorization
-- Blog post management with draft and publish functionality
-- Project portfolio management
-- Category management
-- Image upload using Cloudinary
-- JWT-based authentication
-- Role-based access control
-- Automatic page refresh after draft save
-- Section-based blog organization
-- SEO metadata support
+- 🔐 Authentication & Authorization
+- 📝 Blog Management
+- 📂 Category Management with Drag & Drop Ordering
+- 📑 Section Management
+- 🖼️ Image Upload Support
+- 🔍 Search & Filtering
+- 📊 Blog Statistics
 
 ## Prerequisites
 
 - Node.js (v14 or higher)
 - MongoDB
-- Cloudinary account
-
-## Environment Variables
-
-Create a `.env` file in the root directory with the following variables:
-
-```env
-PORT=5000
-MONGODB_URI=your_mongodb_connection_string
-JWT_SECRET=your_jwt_secret
-CLOUDINARY_CLOUD_NAME=your_cloudinary_cloud_name
-CLOUDINARY_API_KEY=your_cloudinary_api_key
-CLOUDINARY_API_SECRET=your_cloudinary_api_secret
-```
+- Google Cloud Storage (for image uploads)
 
 ## Installation
 
 1. Clone the repository:
 ```bash
 git clone <repository-url>
-cd blog-backend
+cd new-blogbackend-main
 ```
 
 2. Install dependencies:
@@ -47,90 +31,83 @@ cd blog-backend
 npm install
 ```
 
-3. Start the server:
+3. Create a `.env` file in the root directory with the following variables:
+```env
+PORT=5000
+MONGODB_URI=your_mongodb_uri
+JWT_SECRET=your_jwt_secret
+GCP_SERVICE_ACCOUNT_KEY=your_gcp_service_account_key
+BUCKET_NAME=your_gcp_bucket_name
+```
+
+4. Start the server:
 ```bash
 npm start
 ```
 
 ## API Endpoints
 
-### Authentication
-- POST `/api/auth/register` - Register a new user
-- POST `/api/auth/login` - Login user
-- GET `/api/auth/me` - Get current user profile
-
-### Blog Posts
-- GET `/api/posts` - Get all blog posts
-- POST `/api/posts` - Create a new blog post
-- GET `/api/posts/:id` - Get a single blog post
-- PUT `/api/posts/:id` - Update a blog post
-- DELETE `/api/posts/:id` - Delete a blog post
-- GET `/api/posts/slug/:slug` - Get blog post by slug
-- GET `/api/posts/category/:slug` - Get posts by category slug
-- GET `/api/posts/category/id/:categoryId` - Get posts by category ID
-
-### Projects
-- GET `/api/projects` - Get all projects
-- POST `/api/projects` - Create a new project
-- GET `/api/projects/:id` - Get a single project
-- PUT `/api/projects/:id` - Update a project
-- DELETE `/api/projects/:id` - Delete a project
-
 ### Categories
-- GET `/api/categories` - Get all categories
-- POST `/api/categories` - Create a new category
-- GET `/api/categories/:id` - Get a single category
-- PUT `/api/categories/:id` - Update a category
-- DELETE `/api/categories/:id` - Delete a category
 
-## Blog Post Features
+- `GET /api/categories` - Get all categories
+- `GET /api/categories/:id` - Get a single category
+- `POST /api/categories` - Create a new category
+- `PUT /api/categories/:id` - Update a category
+- `DELETE /api/categories/:id` - Delete a category
+- `PUT /api/categories/reorder` - Reorder categories (drag & drop)
 
-### Draft System
-- Save posts as drafts
-- Automatic page refresh after draft save
-- Toggle between draft and published states
-- Draft posts are only visible to authors and admins
+### Sections
 
-### Section Management
-- Organize blog posts into sections
-- Order sections for custom display
-- Section-specific image uploads
-- Section metadata support
+- `GET /api/sections` - Get all sections
+- `GET /api/sections/:id` - Get a single section
+- `POST /api/sections` - Create a new section
+- `PUT /api/sections/:id` - Update a section
+- `DELETE /api/sections/:id` - Delete a section
+- `PUT /api/sections/reorder` - Reorder sections (drag & drop)
 
-### Image Handling
-- Main image upload for blog posts
-- Multiple section images support
-- Automatic Cloudinary integration
-- Image optimization and CDN delivery
+### Blogs
 
-## Project Structure
+- `GET /api/blogs` - Get all blogs
+- `GET /api/blogs/:id` - Get a single blog
+- `POST /api/blogs` - Create a new blog
+- `PUT /api/blogs/:id` - Update a blog
+- `DELETE /api/blogs/:id` - Delete a blog
+
+## Category Reordering
+
+To reorder categories, send a PUT request to `/api/categories/reorder` with the following body:
+
+```json
+{
+  "categories": [
+    { "id": "category_id_1", "order": 1 },
+    { "id": "category_id_2", "order": 2 },
+    { "id": "category_id_3", "order": 3 }
+  ]
+}
+```
+
+## Authentication
+
+All admin routes require authentication. Include the JWT token in the Authorization header:
 
 ```
-├── config/
-│   ├── cloudinary.js
-│   └── db.js
-├── controllers/
-│   ├── authController.js
-│   ├── blogController.js
-│   ├── categoryController.js
-│   └── projectController.js
-├── middleware/
-│   ├── auth.js
-│   └── upload.js
-├── models/
-│   ├── User.js
-│   ├── Blog.js
-│   ├── Category.js
-│   └── Project.js
-├── routes/
-│   ├── auth.js
-│   ├── blog.js
-│   ├── category.js
-│   └── project.js
-├── .env
-├── .gitignore
-├── package.json
-└── server.js
+Authorization: Bearer your_jwt_token
+```
+
+## Error Handling
+
+The API uses a consistent error response format:
+
+```json
+{
+  "status": "error",
+  "message": "Error message",
+  "error": {
+    "statusCode": 500,
+    "status": "error"
+  }
+}
 ```
 
 ## Contributing

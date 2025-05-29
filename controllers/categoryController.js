@@ -33,8 +33,8 @@ const createCategory = asyncHandler(async (req, res) => {
 // Get all categories
 const getCategories = asyncHandler(async (req, res) => {
   const categories = await Category.find({ status: "published" })
-    .sort({ name: 1 })
-    .select("_id name slug description blogCount status");
+    .sort({ order: 1, name: 1 })
+    .select("_id name slug description blogCount status order");
   res.status(200).json(categories);
 });
 

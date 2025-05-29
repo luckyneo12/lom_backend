@@ -1,6 +1,7 @@
 const Project = require('../models/Project');
 const ProjectCategory = require('../models/ProjectCategory');
-const { cloudinary } = require('../config/cloudinary');
+const { bucket } = require('../config/gcp');
+const path = require('path');
 
 // Create new project
 exports.createProject = async (req, res) => {
@@ -27,10 +28,28 @@ exports.createProject = async (req, res) => {
     // Upload main image
     let mainImageUrl = '';
     if (req.files && req.files.mainImage && req.files.mainImage[0]) {
-      const mainImageResult = await cloudinary.uploader.upload(req.files.mainImage[0].path, {
-        folder: 'projects/main'
+      const file = req.files.mainImage[0];
+      const timestamp = new Date().toISOString().replace(/[:.-]/g, "");
+      const filename = `${timestamp}__${file.originalname}`;
+      const filePath = `projects/main/${filename}`;
+
+      const blob = bucket.file(filePath);
+      const blobStream = blob.createWriteStream({
+        metadata: {
+          contentType: file.mimetype,
+        },
       });
-      mainImageUrl = mainImageResult.secure_url;
+
+      await new Promise((resolve, reject) => {
+        blobStream.on('error', reject);
+        blobStream.on('finish', async () => {
+          await blob.makePublic();
+          resolve();
+        });
+        blobStream.end(file.buffer);
+      });
+
+      mainImageUrl = `https://storage.googleapis.com/${bucket.name}/${filePath}`;
     } else {
       return res.status(400).json({
         success: false,
@@ -41,13 +60,31 @@ exports.createProject = async (req, res) => {
     // Upload additional images
     let additionalImages = [];
     if (req.files && req.files.additionalImages) {
-      const uploadPromises = req.files.additionalImages.map(file =>
-        cloudinary.uploader.upload(file.path, {
-          folder: 'projects/additional'
-        })
-      );
-      const results = await Promise.all(uploadPromises);
-      additionalImages = results.map(result => result.secure_url);
+      const uploadPromises = req.files.additionalImages.map(async (file) => {
+        const timestamp = new Date().toISOString().replace(/[:.-]/g, "");
+        const filename = `${timestamp}__${file.originalname}`;
+        const filePath = `projects/additional/${filename}`;
+
+        const blob = bucket.file(filePath);
+        const blobStream = blob.createWriteStream({
+          metadata: {
+            contentType: file.mimetype,
+          },
+        });
+
+        await new Promise((resolve, reject) => {
+          blobStream.on('error', reject);
+          blobStream.on('finish', async () => {
+            await blob.makePublic();
+            resolve();
+          });
+          blobStream.end(file.buffer);
+        });
+
+        return `https://storage.googleapis.com/${bucket.name}/${filePath}`;
+      });
+
+      additionalImages = await Promise.all(uploadPromises);
     }
 
     const project = new Project({
@@ -149,22 +186,59 @@ exports.updateProject = async (req, res) => {
     // Handle main image upload if new image is provided
     let mainImageUrl = project.mainImage;
     if (req.files && req.files.mainImage) {
-      const mainImageResult = await cloudinary.uploader.upload(req.files.mainImage[0].path, {
-        folder: 'projects/main'
+      const file = req.files.mainImage[0];
+      const timestamp = new Date().toISOString().replace(/[:.-]/g, "");
+      const filename = `${timestamp}__${file.originalname}`;
+      const filePath = `projects/main/${filename}`;
+
+      const blob = bucket.file(filePath);
+      const blobStream = blob.createWriteStream({
+        metadata: {
+          contentType: file.mimetype,
+        },
       });
-      mainImageUrl = mainImageResult.secure_url;
+
+      await new Promise((resolve, reject) => {
+        blobStream.on('error', reject);
+        blobStream.on('finish', async () => {
+          await blob.makePublic();
+          resolve();
+        });
+        blobStream.end(file.buffer);
+      });
+
+      mainImageUrl = `https://storage.googleapis.com/${bucket.name}/${filePath}`;
     }
 
     // Handle additional images upload if new images are provided
     let additionalImages = project.additionalImages;
     if (req.files && req.files.additionalImages) {
-      const uploadPromises = req.files.additionalImages.map(file =>
-        cloudinary.uploader.upload(file.path, {
-          folder: 'projects/additional'
-        })
-      );
-      const results = await Promise.all(uploadPromises);
-      additionalImages = [...additionalImages, ...results.map(result => result.secure_url)];
+      const uploadPromises = req.files.additionalImages.map(async (file) => {
+        const timestamp = new Date().toISOString().replace(/[:.-]/g, "");
+        const filename = `${timestamp}__${file.originalname}`;
+        const filePath = `projects/additional/${filename}`;
+
+        const blob = bucket.file(filePath);
+        const blobStream = blob.createWriteStream({
+          metadata: {
+            contentType: file.mimetype,
+          },
+        });
+
+        await new Promise((resolve, reject) => {
+          blobStream.on('error', reject);
+          blobStream.on('finish', async () => {
+            await blob.makePublic();
+            resolve();
+          });
+          blobStream.end(file.buffer);
+        });
+
+        return `https://storage.googleapis.com/${bucket.name}/${filePath}`;
+      });
+
+      const newImages = await Promise.all(uploadPromises);
+      additionalImages = [...additionalImages, ...newImages];
     }
 
     const updatedProject = await Project.findByIdAndUpdate(
@@ -207,16 +281,18 @@ exports.deleteProject = async (req, res) => {
       });
     }
 
-    // Delete images from Cloudinary
+    // Delete images from GCP
     if (project.mainImage) {
-      const publicId = project.mainImage.split('/').slice(-1)[0].split('.')[0];
-      await cloudinary.uploader.destroy(publicId);
+      const filePath = project.mainImage.split(`${bucket.name}/`)[1];
+      const file = bucket.file(filePath);
+      await file.delete().catch(console.error);
     }
 
     if (project.additionalImages && project.additionalImages.length > 0) {
       const deletePromises = project.additionalImages.map(imageUrl => {
-        const publicId = imageUrl.split('/').slice(-1)[0].split('.')[0];
-        return cloudinary.uploader.destroy(publicId);
+        const filePath = imageUrl.split(`${bucket.name}/`)[1];
+        const file = bucket.file(filePath);
+        return file.delete().catch(console.error);
       });
       await Promise.all(deletePromises);
     }
